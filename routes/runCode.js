@@ -1,9 +1,10 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const Submission = require('../models/Submission'); // ✅ import model
 
 router.post('/run-code', async (req, res) => {
-  const { script, language, versionIndex, stdin } = req.body;
+   const { script, language, stdin } = req.body;
 
   try {
     const response = await axios.post(
@@ -21,21 +22,28 @@ router.post('/run-code', async (req, res) => {
         },
       }
     );
+
+    const output = response.data.stdout || response.data.stderr || 'No output';
+
+    // // ✅ Save to MongoDB
+    // const submission = new Submission({ script, language, stdin, output });
+    // await submission.save();
+
     res.json(response.data);
- 
-    
   } catch (error) {
-     if (error.response) {
-      console.error('Response data:', error.response.data);
-      res.status(500).json({
-        error: 'Execution failed',
-        details: error.response.data
-      });
-    } else {
-      res.status(500).json({ error: 'Execution failed', message: error.message });
-    }
+    console.error('Execution failed:', error);
+    res.status(500).json({ error: 'Execution failed', details: error.message });
   }
-  
+});
+
+// ✅ GET /api/submissions — fetch all submissions
+router.get('/submissions', async (req, res) => {
+  try {
+    const submissions = await Submission.find().sort({ date: -1 });
+    res.json(submissions);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
 });
 
 function getLanguageId(language) {
@@ -45,10 +53,8 @@ function getLanguageId(language) {
     java: 62,
     cpp: 54,
     c: 50,
-  
-    // add more mappings if needed
   };
-  return map[language] || 71; 
+  return map[language] || 71;
 }
 
 module.exports = router;
